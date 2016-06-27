@@ -1,0 +1,350 @@
+======================================================
+=         Propagation Version 0.9 05/05/15           =
+=                     USER MANUAL                    =
+======================================================
+
+
+
+PLEASE TAKES NOTE OF README BEFORE THE USER'S MANUAL.
+
+=============== OPTIONS IN SOURCE CODE ===============
+All the settings are available in the Propagation.m
+file from the Propagation function, between the Global 
+and Main section. All variables used for settings 
+are global structured variables.
+ ____________________________________________________
+│         Variable       │Type   │     Default Value │
+│________________________│_______│___________________│
+│display.resolution.x    │double │                100│
+│display.resolution.y    │double │                100│
+│display.monitor.select  │string │                'S'│
+│display.taskbar.thin    │double │                 30│
+│display.taskbar.position│string │                'H'│
+│display.color.map       │string │           'Autumn'│
+│l.defaultLang           │string │               'EN'│
+│________________________│_______│___________________│
+│Ptrans.offset           │double │                -90│
+│Ptrans.powerMax         │double │                 15│
+│Ptrans.formula          │f_h*   │                   │
+│   @(x, d) 0.5*(1+cos(2*x*pi/d)).*(abs(x)<d/2+0.05);│
+│Ptrans.directivity      │double │                  0│
+│________________________│_______│___________________│
+│Losses.l                │double │                 23│
+│Losses.distanceAlpha    │double │                  4│
+│Losses.incidenceFormula │f_h*   │         @(x)cos(x)│
+│Losses.enable           │boolean│               true│
+│Losses.enablePolyxPoly  │boolean│              false│
+│Losses.epsilon          │double │               0.01│
+│________________________│_______│___________________│
+│source                  │Source │      Coor(60, 75),│
+│-/-                     │       │  'omnidirectional'│
+│object(1)               │Obstacles                  │
+│object(...)             │       │                   │
+│object(n)               │       │                ...│
+│________________________│_______│___________________│
+(*) f_h = function_handle
+
+ ____________________________________________________
+│         Variable       │         Description       │
+│________________________│___________________________│
+│display.resolution.x    │(>0, non decimal,          │
+│display.resolution.y    │resolution.x>=resolution.y)│
+│display.monitor.select  │(P/S) extended desktop only│
+│display.taskbar.thin    │Size of the os taskbar     │
+│display.taskbar.position│(H/V) OS taskbar position  │
+│display.color.map       │Matlab templates           │
+│l.defaultLang           │Display language(*)        │
+│________________________│___________________________│
+│Ptrans.offset           │(-180...180) Source Offset │
+│Ptrans.powerMax         │Power max of the source    │
+│Ptrans.formula          │Directivity formula        │
+│Ptrans.directivity      │(0/1..360) directivity     │
+│________________________│___________________________│
+│Losses.l                │Losses                     │
+│Losses.distanceAlpha    │coeficient in 1/d^Alpha    │
+│Losses.incidenceFormula │Formula for refraction     │
+│Losses.enable           │Enable Obstcles            │
+│Losses.enablePolyxPoly  │faster if enable but no    │
+│-/-                     │indices for refraction     │
+│Losses.epsilon          │Threshold to detect or not │
+│-/-                     │interception if            │
+│-/-                     │enablePolyxPoly disabled   │
+│________________________│___________________________│
+│source                  │Declare THE Source         │
+│object(1)               │Declare array of obstacleS │
+│object(...)             │...                        │
+│object(n)               │...                        │
+│________________________│___________________________│
+
+(*) To set an other language, you have to : (I) change 
+the value in the option, (II) add a case with the name
+of the new value in the Lang function in the Lang.m
+file, (III) translate in the language all the 
+variables.
+
+
+=================== HOW IT WORKS =====================
+It browse each points of the set area. For each point,
+the folowing elements are processed :
+
+1- --> Get the distance d between point and source
+
+2- Get angle A at the source between the horizontal 
+axis and the current point
+
+3- --> Calculate the coeficient S (between 0 and 1) 
+depending on the angle between the transmition axis of
+the antenna and the current point (directivity of the 
+antenna and the angle A with its offset).
+If directivity is disable (directivity=0), set S to 1
+
+4- --> Calculate losses L. It calculates the losse due
+to obstacles position. Depend on global variable
+Losses.enablePolyxPoly.
+	(i) Losses.enablePolyxPoly = true
+	=> Do not depend on inscidence angle
+Browse each obstacle.
+>For each obstacle, it uses the
+>polyxpoly matlab function which return the number q of
+>intersections of the current obstacle between the 
+>source and the received point. Get the losse Lo of the 
+>current obstacle depending on the type of obstacle.
+>Add Lo*q into the old L value.
+	(ii) Losses.enablePolyxPoly = false
+	=> Depend on inscidence angle
+Browse each obstacle. 
+>For each obstacle, browse each line segment of obstacle.
+>>Use function defined in Intersection.m file to 
+>>determine wheather it intersects or not. In case of 
+>>intersection get the inscidence angle and put it into
+>>the formula to return a coeficient LI (between 0 and
+>>1). Add LI to the q value for the segment which 
+>>intersects. 
+>Then add Lo*q into the old value L (like (i), with Lo 
+>and L) to the current obstacle.
+
+5- Get the Losses.distanceAlpha (alpha) and 
+source.powerMax (Pmax) values in global variable and 
+calculates pix : pix = 10*(log10(S*Pmax/d^alpha))-L;
+
+6- --> Write pix value in the current point of the big
+matrix.
+
+
+=========== WHERE VALUES ARE TAKEN FROM ? ============
+There are 2 types of values : 
+1- "Object Type Non Dependant Values" :
+These values are always taken from the global settings
+section of the propagation.m file: "SOURCE DEFAULT 
+SETTINGS" for the source or "LOSSES DEFAULT SETTINGS" 
+for the obstacles.
+2- "Object Type Dependant Values" :
+If the object (Source or Obstacle) has been declared 
+with its type (which is for both optional), and the 
+type is referenced in the appropriate class, the value
+will be taken from the class, depending of course of 
+the type. Otherwise, the value will be taken in the 
+the global settings section of the propagation.m.
+
+The following array gather all the concerned variable,
+with (1) as type for "Object Type Non Dependant Values"
+and (2) as type for "Object Type Dependant Values" :
+ ____________________________________________________
+│             Variable                │ Object  │Type│
+│_____________________________________│_________│____│
+│Ptrans.offset                        │Source   │(1) │
+│Ptrans.powerMax                      │Source   │(1) │
+│Ptrans.formula                       │Source   │(1) │
+│-------------------------------------│---------│----│
+│Ptrans.directivity                   │Source   │(2) │
+│_____________________________________│_________│____│
+│Losses.l                             │Obstacles│(2) │
+│-------------------------------------│---------│----│
+│Losses.distanceAlpha                 │Obstacles│(1) │
+│Losses.incidenceFormula              │Obstacles│(1) │
+│Losses.enable                        │Obstacles│(1) │
+│Losses.enablePolyxPoly               │Obstacles│(1) │
+│Losses.epsilon                       │Obstacles│(1) │
+│_____________________________________│_________│____│
+
+================= FILES ARCHITECTURE =================
+├───Propagation
+│   │   Coor.m
+│   │   Graphic.m
+│   │   Intersection.m
+│   │   Lang.m
+│   │   Obstacles.m
+│   │   Others.m
+│   │   Propagation.m
+│   │   Source.m
+│   └───IMPORTANT
+│           LICENSE.txt
+│           MANUAL.txt
+│           README.txt
+
+
+================= CODE ARCHITECTURE ==================
+ ____________________________________________________ 
+│MAIN               Propagation.m                    │
+│____________________________________________________│
+│>> function Propagation()                           │
+│Main function. Contains all global variables and    │
+│settings. Browse each point of the big matrix, set  │
+│the value.                                          │
+│____________________________________________________│
+│>> function L = calculateLosses(x, y, A)            │
+│Browse each obstacle, then choose the set method and│
+│browse each segment of obstacle to determine        │
+│intersections, and then to conclude the losse.      │
+│Method without polyxpoly function is longer, but can│
+│calculate losse depending on the incidence angle.   │
+│All methods used manually without polyxpoly built-in│
+│functions are in the Intersection.m file            │
+│____________________________________________________│
+│>> function nAngle = offset(angle, offset)          │
+│Modify angle with given offset                      │
+│____________________________________________________│ 
+
+ ____________________________________________________
+│                      Graphic.m                     │
+│____________________________________________________│
+│>> function ret = Graphic()                         │
+│Load graphics and display settings related to GUI   │
+│____________________________________________________│  
+│>> function checkResolution()                       │
+│>> function ret = checkIfNum(num)                   │
+│____________________________________________________│
+
+ ____________________________________________________
+│                   Intersection.m*                  │
+│(*) Only used without polyxpoly function            │
+│____________________________________________________│
+│>> function ret = Intersection(x, y, oi, A)         │
+│Browse each segment of the obstacle, if intersection│
+│detected, get inscidence angle and return total loss│
+│for the current obstacle Call checkSegmentsIntersect│
+│>> function ret = checkSegmentsIntersect(s1, s2)    │
+│return true if intersection between 2 segment       │
+│Require checkBoundingIntersect and                  │
+│checkLineLineSegmentIntersect                       │
+│>> function ret = checkBoundingIntersect(s1, s2)    │
+│Require getBox                                      │
+│Return if box drawed by 2 segments intersect        │
+│>> function s = getBox(s)                           │
+│>> function ret=checkLineLineSegmentIntersect(l1,l2)│
+│Require checkPointOnLine and checkPointRightOnLine  │
+│>> function ret = checkPointOnLine(l,p)             │
+│Require crossProd                                   │
+│>> function ret = checkPointRightOnLine(l, p)       │
+│Require crossProd                                   │
+│>> function ret = crossProd(a, b)                   │
+│>> function ret = getProjected(s)                   │
+│Get coordonates of the tangent point in order to    │
+│calculate the inscidence angle                      │
+│____________________________________________________│
+
+ ____________________________________________________
+│CLASS                  Coor.m                       │
+│____________________________________________________│
+│> Coor                                        class │
+│>> proprieties x, y, first, second, type            │
+│____________________________________________________│
+│>> function obj = Coor(c1, c2, type)          constr│
+│2 types of objects : line segment if type is 'S' or │
+│point otherwise.                                    │
+│If point : 2 proprieties : x and y.                 │
+│If segment line : defined by 2 points : an argument │
+│= a point                                           │
+│-> s1 = Coor(Coor(12, 4), Coor(45, 77), 'S');       │
+│will define a segment s1 between the points A(12, 4)│
+│and B(45, 77)                                       │
+│____________________________________________________│
+
+ ____________________________________________________
+│CLASS                 Source.m                      │
+│____________________________________________________│
+│> Source                                      class │
+│>> proprieties src,type,powerMax,offset,directivity │
+│____________________________________________________│
+│>> function obj = Source(src, type, powerMax, offset│
+│                                        directivity)│
+│                                              constr│
+│>> function obj = setType(obj, customtype)   constr2│
+│>> function obj = modulow(obj, angle)               │
+│The constructor (constr+constr2) defines a source   │
+│-> source = Source(Coor(60, 75), 'omnidirectional');│
+│defines an omnidirectional source on the point      │
+│S(60,75). So, directivity is set to 0 (it meens that│
+│directivity functionality is disabled), and formula │
+│is set to @(x)1                                     │
+│offset and powerMax are not defined : default values│
+│will be taken from global variables                 │
+│It is only possible to add one source for the moment│
+│For adding more sources, see POSSIBILITIES'section  │
+│____________________________________________________│
+
+ ____________________________________________________
+│CLASS               Obstacles.m                     │
+│____________________________________________________│
+│> Obstacles                                   class │
+│>> proprieties x, y, type, losses, form             │
+│____________________________________________________│
+│>> function obj = Obstacles(xvect, yvect, type,form)│
+│                                              constr│
+│x and y are vectors of coordonates and cannot be    │
+│defined as coordonate with the Coor class.          │
+│-> object(1) = Obstacles([5 75], [30 35], '', '');  │
+│define a wall [AB] with A(5, 30) and B(75, 35)      │
+│It is a default type and form, so losse will be     │
+│taken from the global variable                      │
+│____________________________________________________│
+
+ ____________________________________________________
+│Shared                Others.m                      │
+│____________________________________________________│
+│>> function ret = loadObstacles(object)       static│
+│load and check global obstacles if outside          │
+│resolution box  just warning                        │
+│>> function setDisplayStatus()                static│
+│>> function displayStatus(i)                  static│
+│>> function A = getAngle(i, j)                static│
+│>> function drawFigure()                      static│
+│>> function displayWarnings()                 static│
+│____________________________________________________│
+
+ ____________________________________________________
+│                       Lang.m                       │
+│____________________________________________________│
+│>> function Lang(lg)                                │
+│The constructor sets all content to the matching    │
+│variable in the language specified in its argument. │
+│This function is called twice, the first time in    │
+│english, the second time in the language specified  │
+│in the defaultLang option variable, so that, if a   │
+│label doesn't exists, english is used.              │
+│____________________________________________________│
+
+
+=================== POSSIBILITIES ====================
+As mentionned in the LICENSE, this program is open 
+source. Therefore it can be modified.
+For exemple, it is easily possible to modify or add 
+different type or form of obstacle in the Obstacles 
+class. Same thing for the Source class.
+Furthermore, it is also possible to define several 
+sources, but this require modifying static methods to
+non static methods and modifying source object as an
+array of source object.
+
+
+====================== CONTACT =======================
+If you have questions, troobleshoutings or improvement
+proposals which ONLY DIRECTLY CONCERN SurfaceProcess,
+you can email ONE of the two contact mentioned above :
+>Jean-Baptiste Delon : jean.baptiste.delon@outlook.com
+>Martin TARANETZ : martin.taranetz@nt.tuwien.ac.at
+
+
+
+======================================================
+Copyright © 2015 Vienna University of Technology
